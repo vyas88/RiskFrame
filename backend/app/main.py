@@ -9,7 +9,8 @@ from typing import Any, Optional, Union
 import numpy as np
 import pandas as pd
 from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from jinja2 import Template
 
 from . import ifrs9_engine, lgd_engine
@@ -18,7 +19,10 @@ from . import ifrs9_engine, lgd_engine
 SAMPLE_DIR = Path(__file__).resolve().parent / "data"
 PORTFOLIO_SAMPLE = SAMPLE_DIR / "sample_portfolio.csv"
 LGD_SAMPLE = SAMPLE_DIR / "LGD_Model_Data.csv"
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 app = FastAPI(title="RiskFrame API")
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
 
 def _fail(message: str, status_code: int = 400) -> None:
@@ -226,3 +230,15 @@ def report(body: dict[str, Any] = Body(...)) -> Union[dict[str, str], Response]:
     except Exception as exc:
         _fail(str(exc))
         raise AssertionError("unreachable")
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/{path:path}", include_in_schema=False)
+def frontend(path: str = "") -> Response:
+    """Serve the Vite SPA for browser routes while reserving /api for FastAPI."""
+    if path.startswith("api/"):
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    index = FRONTEND_DIST / "index.html"
+    if not index.is_file():
+        return JSONResponse({"detail": "Frontend build is unavailable"}, status_code=503)
+    return FileResponse(index)
