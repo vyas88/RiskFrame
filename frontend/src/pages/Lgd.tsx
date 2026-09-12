@@ -1,0 +1,21 @@
+import { useEffect, useState } from "react";
+import { Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
+import { api } from "../api";
+import type { LgdSummary } from "../types";
+import { currency, ErrorPanel, LoadingPanels, Panel, percent } from "../components/Common";
+import { useDataSource } from "../dataSource";
+
+function SegmentChart({ title, data }: { title: string; data: { ead_weighted_lgd: number; [key: string]: string | number }[] }) {
+  const key = data.length ? Object.keys(data[0]).find((item) => !["count", "total_ead", "mean_lgd", "ead_weighted_lgd"].includes(item)) ?? "segment" : "segment";
+  return <Panel title={title} subtitle="EAD-weighted LGD shows the expected loss share for each segment."><Box height={260}><ResponsiveContainer><BarChart data={data}><XAxis dataKey={key} /><YAxis tickFormatter={(v) => percent(Number(v))} /><Tooltip formatter={(v) => percent(Number(v))} /><Bar dataKey="ead_weighted_lgd" fill="#0f6b72" /></BarChart></ResponsiveContainer></Box></Panel>;
+}
+
+export default function Lgd() {
+  const { lgdBody } = useDataSource();
+  const [data, setData] = useState<LgdSummary>(); const [error, setError] = useState("");
+  useEffect(() => { api.post<LgdSummary>("/api/lgd/summary", lgdBody).then(setData).catch((err: Error) => setError(err.message)); }, [lgdBody]);
+  if (error) return <ErrorPanel message={error} />; if (!data) return <LoadingPanels count={4} />;
+  const headline = data.portfolio_lgd; const scatter = data.model_accuracy ? data.model_accuracy.scatter_obs.map((obs, index) => ({ obs, pred: data.model_accuracy!.scatter_pred[index] })) : [];
+  return <Box display="grid" gap={2}><Box display="grid" gridTemplateColumns="repeat(auto-fit,minmax(180px,1fr))" gap={2}>{[["Mean LGD", percent(headline.mean_lgd, 2)], ["EAD-weighted LGD", percent(headline.ead_weighted_lgd, 2)], ["Mean recovery", percent(headline.mean_recovery, 2)], ["Total EAD", currency(headline.total_ead)]].map(([label, value]) => <Panel key={label} title={label} subtitle="Calculated from the uploaded LGD file."><Typography variant="h5">{value}</Typography></Panel>)}</Box><Box display="grid" gridTemplateColumns={{ md: "1fr 1fr" }} gap={2}>{data.segments.SENIORITY && <SegmentChart title="LGD by seniority" data={data.segments.SENIORITY} />}{data.segments.COLLATERAL_TYPE && <SegmentChart title="LGD by collateral type" data={data.segments.COLLATERAL_TYPE} />}</Box>{data.ltv_effect && <Panel title="LTV effect" subtitle="Observed mean LGD by loan-to-value bucket."><Box height={260}><ResponsiveContainer><BarChart data={data.ltv_effect}><XAxis dataKey="ltv_bucket" /><YAxis tickFormatter={(v) => percent(Number(v))} /><Tooltip formatter={(v) => percent(Number(v))} /><Bar dataKey="mean_lgd" fill="#ed6c02" /></BarChart></ResponsiveContainer></Box></Panel>}{data.collateral_effect && <Panel title="Collateral and guarantee effect" subtitle="Mean observed LGD for records with and without these protections."><Table size="small"><TableHead><TableRow><TableCell>Effect</TableCell><TableCell>Group</TableCell><TableCell>Mean LGD</TableCell></TableRow></TableHead><TableBody>{Object.entries(data.collateral_effect).flatMap(([effect, groups]) => Object.entries(groups).map(([group, value]) => <TableRow key={`${effect}-${group}`}><TableCell>{effect}</TableCell><TableCell>{group}</TableCell><TableCell>{percent(value)}</TableCell></TableRow>))}</TableBody></Table></Panel>}{data.model_accuracy && <Panel title="Model accuracy" subtitle={`MAE ${data.model_accuracy.mae.toFixed(3)} and correlation ${data.model_accuracy.corr.toFixed(3)} compare observed and predicted LGD.`}><Box height={280}><ResponsiveContainer><ScatterChart><CartesianGrid /><XAxis dataKey="obs" name="Observed" tickFormatter={(v) => percent(Number(v))} /><YAxis dataKey="pred" name="Predicted" tickFormatter={(v) => percent(Number(v))} /><Tooltip cursor={{ strokeDasharray: "3 3" }} /><Scatter data={scatter} fill="#0f6b72" /></ScatterChart></ResponsiveContainer></Box></Panel>}<Typography color="text.secondary">This EAD-weighted LGD ({data.lgd_for_ecl.toFixed(4)}) feeds the ECL as the default LGD.</Typography></Box>;
+}
