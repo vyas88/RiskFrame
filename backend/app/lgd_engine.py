@@ -20,7 +20,7 @@ def _prepared(df: pd.DataFrame) -> pd.DataFrame:
     """Make a calculation-safe copy and clip observed LGD to its probability range."""
     data = df.copy()
     numeric_columns = {
-        "ACCOUNT_ID", "EXPOSURE_AT_DEFAULT", "LGD_OBS", "RECOVERY_RATE", "LGD_MODEL_PRED",
+        "EXPOSURE_AT_DEFAULT", "LGD_OBS", "RECOVERY_RATE", "LGD_MODEL_PRED",
         "COLLATERAL_VALUE", "LTV_RATIO", "GUARANTEE_FLAG", "DAYS_PAST_DUE", "INTEREST_RATE",
         "RECOVERY_TIME_MONTHS", "DEFAULT_FLAG",
     }
@@ -45,8 +45,8 @@ def validate(df: pd.DataFrame) -> tuple[bool, list[str]]:
     for column in REQUIRED_COLUMNS:
         if data[column].isna().any():
             errors.append(f"{column} contains missing or invalid values")
-    if not data["ACCOUNT_ID"].dropna().mod(1).eq(0).all():
-        errors.append("ACCOUNT_ID must contain whole numbers")
+    if df["ACCOUNT_ID"].astype(str).str.strip().eq("").any():
+        errors.append("ACCOUNT_ID contains blank values")
     if "RECOVERY_RATE" in data:
         sums_to_one = np.isclose(data["RECOVERY_RATE"] + data["LGD_OBS"], 1.0, atol=0.05, equal_nan=True)
         if not bool(np.all(sums_to_one)):
