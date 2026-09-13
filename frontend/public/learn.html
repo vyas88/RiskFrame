@@ -80,6 +80,7 @@
     .number { color: var(--teal-900); display: block; font-size: 1.82rem; font-weight: 800; letter-spacing: -.04em; margin-top: 7px; }
     .label { color: var(--muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
     .sample-note { color: var(--muted); font-size: .78rem; margin: 18px 0 0; }
+    .sample-tag { display: inline-block; margin-bottom: 9px; padding: 4px 8px; border-radius: 999px; background: #fff3cf; color: #765400; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .timeline { position: relative; display: grid; gap: 16px; }
     .timeline:before { content: ""; position: absolute; left: 18px; top: 25px; bottom: 25px; width: 2px; background: #bfdfdd; }
     .timeline .card { padding-left: 62px; }
@@ -204,12 +205,12 @@
       <h2>Adding thousands of loan estimates creates the provision.</h2>
       <p class="section-intro">These figures are from the bundled RiskFrame sample at the time this page was created. They are examples of the calculation, so your uploaded data may produce different values.</p>
       <div class="grid grid-3">
-        <article class="card"><div class="label">Total EAD</div><span class="number">$50.00m</span><p>5,000 loan exposures in the bundled portfolio.</p></article>
-        <article class="card"><div class="label">LGD used</div><span class="number">0.557</span><p>EAD-weighted LGD from the bundled recovery data.</p></article>
-        <article class="card"><div class="label">Total ECL</div><span class="number">$15.77m</span><p>The sum of ECL across every portfolio loan.</p></article>
+        <article class="card"><span class="sample-tag">Example, from the sample</span><div class="label">Total EAD</div><span class="number">$50.00m</span><p>5,000 loan exposures in the bundled portfolio.</p></article>
+        <article class="card"><span class="sample-tag">Example, from the sample</span><div class="label">LGD used</div><span class="number">0.557</span><p>EAD-weighted LGD from the bundled recovery data.</p></article>
+        <article class="card"><span class="sample-tag">Example, from the sample</span><div class="label">Total ECL</div><span class="number">$15.77m</span><p>The sum of ECL across every portfolio loan.</p></article>
       </div>
       <div class="grid grid-2" style="margin-top:18px">
-        <article class="card card-soft"><h3>Provision percentage: 31.53%</h3><p>This headline is <span class="math">total ECL ÷ total EAD</span>. In the sample it is $15.77m ÷ $50.00m. It answers: “What estimated loss provision does this portfolio represent as a share of its exposure?”</p></article>
+        <article class="card card-soft"><span class="sample-tag">Example, from the sample</span><h3>Provision percentage: 31.53%</h3><p>This headline is <span class="math">total ECL ÷ total EAD</span>. In the sample it is $15.77m ÷ $50.00m. It answers: “What estimated loss provision does this portfolio represent as a share of its exposure?”</p></article>
         <article class="card card-soft"><h3>Average 12-month PD is not the ECL PD</h3><p>The dashboard labels the average 12-month PD clearly. ECL itself uses a stage-weighted PD: 12-month PD in Stage 1, lifetime PD in Stage 2, and 1.0 in Stage 3. That is why the provision cannot be recreated from one average PD alone.</p></article>
       </div>
     </section>
@@ -218,7 +219,7 @@
       <div class="eyebrow">Decision tools</div>
       <h2>Explore what could change, without changing the original data.</h2>
       <div class="timeline">
-        <article class="card"><span class="timeline-dot"></span><h3>Scenario stress testing</h3><p>Baseline, Adverse and Upside scenarios adjust PD and LGD by simple multipliers. Their ECL values are combined using normalised weights, so the weights always total 100%. In the bundled sample, weighted ECL is <strong>$17.85m</strong>, a <strong>13.2% uplift</strong over baseline ECL of $15.77m.</p></article>
+        <article class="card"><span class="timeline-dot"></span><span class="sample-tag">Example, from the sample</span><h3>Scenario stress testing</h3><p>Baseline, Adverse and Upside scenarios adjust PD and LGD by simple multipliers. Their ECL values are combined using normalised weights, so the weights always total 100%. In the bundled sample, weighted ECL is <strong>$17.85m</strong>, a <strong>13.2% uplift</strong over baseline ECL of $15.77m.</p></article>
         <article class="card"><span class="timeline-dot"></span><h3>Single-factor sensitivity</h3><p>RiskFrame changes PD, LGD or EAD by one shock at a time, holding the other two unchanged. The tornado chart shows the ECL range from the low to high shock. It intentionally does not simulate macroeconomic factors because the PD is already calibrated, and a macro overlay here would be invented rather than evidenced.</p></article>
         <article class="card"><span class="timeline-dot"></span><h3>Borrower what-if</h3><p>You can change one borrower's DPD, internal score or starting PD in a temporary calculation. Nothing is saved. If DPD moves from 15 to 45, it crosses the 30-day line, changes the rule stage to Stage 2 and switches the ECL horizon from 12-month to lifetime PD.</p></article>
         <article class="card"><span class="timeline-dot"></span><h3>Early-warning watchlist</h3><p>When DPD exists, the watchlist finds rule Stage 1 accounts at 25 to 29 DPD, just below the 30-day line. It compares their current 12-month ECL with the lifetime ECL they would have in Stage 2 and ranks the difference. It is a watchlist, not a prediction that a stage move will happen.</p></article>
