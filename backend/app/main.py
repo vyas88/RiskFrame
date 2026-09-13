@@ -284,6 +284,15 @@ def report(body: dict[str, Any] = Body(...)) -> Union[dict[str, str], Response]:
         raise AssertionError("unreachable")
 
 
+@app.get("/learn.html", include_in_schema=False)
+def learn_page() -> Response:
+    """Serve the standalone guide before the browser-app fallback route."""
+    guide = FRONTEND_DIST / "learn.html"
+    if not guide.is_file():
+        return JSONResponse({"detail": "Learning guide is unavailable"}, status_code=503)
+    return FileResponse(guide, media_type="text/html")
+
+
 @app.get("/", include_in_schema=False)
 @app.get("/{path:path}", include_in_schema=False)
 def frontend(path: str = "") -> Response:

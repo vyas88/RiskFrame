@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A plain-language guide to RiskFrame's IFRS 9 credit-risk calculations.">
+  <title>Learn | RiskFrame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #5f6f82;
+      --line: #dbe5ed;
+      --paper: #ffffff;
+      --canvas: #f4f7fa;
+      --teal-900: #0f4c5c;
+      --teal-700: #176b7d;
+      --teal-100: #dff2f0;
+      --green: #2e7d32;
+      --amber: #ed6c02;
+      --red: #d32f2f;
+      --blue: #3578c8;
+      --radius: 18px;
+      --shadow: 0 12px 30px rgba(15, 76, 92, .08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--canvas); font-family: Inter, Arial, sans-serif; line-height: 1.6; }
+    a { color: inherit; }
+    .topbar { background: var(--teal-900); color: #fff; position: sticky; top: 0; z-index: 5; box-shadow: 0 2px 14px rgba(10, 44, 54, .22); }
+    .topbar-inner { max-width: 1200px; min-height: 70px; margin: auto; padding: 10px 24px; display: flex; align-items: center; gap: 22px; }
+    .brand { text-decoration: none; display: grid; line-height: 1.1; margin-right: auto; }
+    .brand strong { font-size: 1.08rem; letter-spacing: -.02em; }
+    .brand small { opacity: .78; font-size: .68rem; margin-top: 4px; }
+    .topbar nav { display: flex; gap: 18px; align-items: center; font-size: .82rem; font-weight: 600; }
+    .topbar nav a { color: rgba(255,255,255,.85); text-decoration: none; }
+    .topbar nav a:hover { color: #fff; }
+    .back { border: 1px solid rgba(255,255,255,.4); padding: 7px 11px; border-radius: 8px; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .hero { padding: 82px 0 58px; background: radial-gradient(circle at 86% 5%, #c9ece7 0, transparent 28%), linear-gradient(140deg, #fff 0%, #eaf5f5 100%); border-bottom: 1px solid var(--line); }
+    .eyebrow { color: var(--teal-700); font-size: .72rem; text-transform: uppercase; letter-spacing: .14em; font-weight: 800; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 820px; font-size: clamp(2.4rem, 6vw, 4.6rem); letter-spacing: -.065em; line-height: 1.04; margin: 14px 0 20px; }
+    h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); letter-spacing: -.045em; line-height: 1.15; margin-bottom: 12px; }
+    h3 { font-size: 1.12rem; line-height: 1.3; margin-bottom: 8px; }
+    .lead { max-width: 690px; color: #3f5267; font-size: 1.13rem; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 30px; }
+    .pill { padding: 7px 11px; border-radius: 999px; background: rgba(255,255,255,.82); border: 1px solid #cae2e0; color: var(--teal-900); font-size: .78rem; font-weight: 700; }
+    .guide-nav { border-bottom: 1px solid var(--line); background: #fff; }
+    .guide-nav .wrap { display: flex; gap: 20px; overflow-x: auto; padding: 12px 0; white-space: nowrap; }
+    .guide-nav a { color: var(--muted); text-decoration: none; font-size: .8rem; font-weight: 700; }
+    .guide-nav a:hover { color: var(--teal-900); }
+    main { padding: 64px 0 76px; }
+    section { margin-bottom: 88px; scroll-margin-top: 120px; }
+    .section-intro { max-width: 680px; color: var(--muted); margin-bottom: 28px; }
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+    .card p:last-child { margin-bottom: 0; }
+    .card-soft { background: #f8fbfc; box-shadow: none; }
+    .formula { background: #102d39; color: #effcff; border-radius: var(--radius); padding: 30px; box-shadow: var(--shadow); overflow-x: auto; }
+    .formula small { color: #aad6d6; text-transform: uppercase; font-size: .68rem; letter-spacing: .13em; font-weight: 800; }
+    .equation { font-family: "DM Mono", monospace; font-size: clamp(1.6rem, 4vw, 2.7rem); line-height: 1.25; margin: 10px 0; white-space: nowrap; }
+    .formula p { color: #bfdbdf; margin: 0; }
+    .worked { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+    .worked div { border-radius: 10px; padding: 13px; background: rgba(255,255,255,.09); font-family: "DM Mono", monospace; font-size: .86rem; }
+    .worked span { display: block; color: #a5d2d6; font-family: Inter, sans-serif; font-size: .68rem; margin-bottom: 5px; }
+    .step { position: relative; padding-left: 58px; }
+    .step-no { position: absolute; left: 0; top: 0; height: 37px; width: 37px; border-radius: 50%; display: grid; place-items: center; background: var(--teal-100); color: var(--teal-900); font-weight: 800; }
+    .stage { border-top: 4px solid var(--green); }
+    .stage.s2 { border-color: var(--amber); }
+    .stage.s3 { border-color: var(--red); }
+    .stage-label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; }
+    .math { font-family: "DM Mono", monospace; background: #edf6f5; color: var(--teal-900); padding: 3px 6px; border-radius: 5px; font-size: .9em; }
+    .callout { display: flex; gap: 14px; border-left: 4px solid var(--teal-700); padding: 16px 19px; background: #edf8f7; border-radius: 0 12px 12px 0; color: #274c55; }
+    .callout strong { color: var(--teal-900); }
+    .number { color: var(--teal-900); display: block; font-size: 1.82rem; font-weight: 800; letter-spacing: -.04em; margin-top: 7px; }
+    .label { color: var(--muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+    .sample-note { color: var(--muted); font-size: .78rem; margin: 18px 0 0; }
+    .timeline { position: relative; display: grid; gap: 16px; }
+    .timeline:before { content: ""; position: absolute; left: 18px; top: 25px; bottom: 25px; width: 2px; background: #bfdfdd; }
+    .timeline .card { padding-left: 62px; }
+    .timeline-dot { position: absolute; left: 7px; width: 23px; height: 23px; margin-top: 3px; border-radius: 50%; border: 5px solid var(--teal-100); background: var(--teal-700); }
+    .comparison { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: stretch; }
+    .comparison .arrow { display: grid; place-items: center; color: var(--teal-700); font-size: 1.6rem; font-weight: 800; }
+    .limit { border-left: 4px solid var(--amber); background: #fff8f1; }
+    .checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+    .checklist li { padding-left: 28px; position: relative; }
+    .checklist li:before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 800; }
+    .glossary { display: grid; grid-template-columns: 170px 1fr; gap: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fff; }
+    .glossary dt, .glossary dd { margin: 0; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+    .glossary dt { background: #f8fbfc; font-weight: 800; color: var(--teal-900); }
+    .glossary dd:last-child, .glossary dt:nth-last-of-type(1) { border-bottom: 0; }
+    footer { background: #102d39; color: #d6e9eb; padding: 40px 0; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+    footer strong { color: #fff; }
+    footer a { color: #fff; font-weight: 700; }
+    @media (max-width: 760px) {
+      .topbar-inner { padding: 10px 18px; gap: 12px; }
+      .topbar nav { display: none; }
+      .wrap { width: min(100% - 32px, 1120px); }
+      .hero { padding: 64px 0 48px; }
+      main { padding-top: 46px; }
+      section { margin-bottom: 58px; }
+      .grid-2, .grid-3, .worked, .comparison { grid-template-columns: 1fr; }
+      .comparison .arrow { transform: rotate(90deg); min-height: 18px; }
+      .formula { padding: 23px; }
+      .glossary { grid-template-columns: 1fr; }
+      .glossary dt { border-bottom: 0; padding-bottom: 2px; }
+      .glossary dd { padding-top: 6px; }
+      footer .wrap { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/" aria-label="Back to RiskFrame dashboard"><strong>RiskFrame</strong><small>IFRS 9 CREDIT-RISK ANALYTICS</small></a>
+      <nav aria-label="Guide sections"><a href="#formula">The formula</a><a href="#stages">Stages</a><a href="#portfolio">Portfolio</a><a href="#tools">Tools</a></nav>
+      <a class="back" href="/">Back to app</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <div class="eyebrow">RiskFrame learning guide</div>
+      <h1>See how every credit-risk number is made.</h1>
+      <p class="lead">RiskFrame turns a portfolio of loans into a transparent estimate of possible future credit losses. This guide explains every part in everyday language, including what the estimates can and cannot tell you.</p>
+      <div class="pill-row"><span class="pill">Plain-language formulas</span><span class="pill">No hidden model decisions</span><span class="pill">Based on the data in your request</span></div>
+    </div>
+  </section>
+
+  <nav class="guide-nav" aria-label="On this page"><div class="wrap"><a href="#why">Why this exists</a><a href="#formula">ECL formula</a><a href="#pd">Probability of default</a><a href="#stages">Stages</a><a href="#lgd">LGD and EAD</a><a href="#portfolio">Portfolio total</a><a href="#tools">Risk tools</a><a href="#limits">Limitations</a></div></nav>
+
+  <main class="wrap">
+    <section id="why">
+      <div class="eyebrow">Start here</div>
+      <h2>Why estimate a loss before it happens?</h2>
+      <p class="section-intro">A lender does not wait until every borrower misses every payment before thinking about loss. IFRS 9 asks lenders to make a sensible, documented estimate of the credit loss that may happen in the future. That estimate is called Expected Credit Loss, or ECL.</p>
+      <div class="grid grid-3">
+        <article class="card"><div class="step"><span class="step-no">1</span><h3>Look at each loan</h3><p>RiskFrame reads the loan's probability of default, loss severity, exposure and stage.</p></div></article>
+        <article class="card"><div class="step"><span class="step-no">2</span><h3>Estimate its loss</h3><p>It multiplies those three simple ingredients for every loan, using a horizon that matches its stage.</p></div></article>
+        <article class="card"><div class="step"><span class="step-no">3</span><h3>Add up the portfolio</h3><p>The loan estimates are summed into a portfolio provision. You can inspect the inputs behind the total.</p></div></article>
+      </div>
+    </section>
+
+    <section id="formula">
+      <div class="eyebrow">The core calculation</div>
+      <h2>ECL is three plain ideas multiplied together.</h2>
+      <p class="section-intro">The engine does not use a black box. For each loan it uses its chance of default, the share expected to be lost if default happens, and the amount exposed at that time.</p>
+      <div class="formula">
+        <small>Expected Credit Loss for one loan</small>
+        <div class="equation">ECL = PD × LGD × EAD</div>
+        <p>Probability of Default × Loss Given Default × Exposure at Default</p>
+        <div class="worked">
+          <div><span>PD used</span>8%</div>
+          <div><span>LGD used</span>55%</div>
+          <div><span>EAD used</span>$10,000</div>
+          <div><span>Estimated ECL</span>$440</div>
+        </div>
+      </div>
+      <p class="sample-note">Worked example: 0.08 × 0.55 × $10,000 = $440. RiskFrame repeats this calculation loan by loan, then adds the results.</p>
+    </section>
+
+    <section id="pd">
+      <div class="eyebrow">First ingredient</div>
+      <h2>PD asks: how likely is default?</h2>
+      <div class="grid grid-2">
+        <article class="card"><h3>Start with the 12-month PD</h3><p>A <strong>point-in-time 12-month PD</strong> is the starting estimate of a borrower defaulting in the next year. A value of 0.08 means an 8% probability, not a promise that eight in every hundred borrowers will default.</p><p>RiskFrame keeps this original input and calculates a calibrated version for ECL.</p></article>
+        <article class="card card-soft"><h3>Calibrate it to what was observed</h3><p>When calibration is switched on, the engine checks whether the portfolio's average starting PD is aligned with its observed default rate.</p><p><span class="math">calibration multiplier = observed default rate ÷ average raw PD</span></p><p>The calibrated PD is the raw PD multiplied by this factor and then kept safely between 0.0001% and 99.99%.</p></article>
+      </div>
+      <div class="callout"><div><strong>Why calibrate?</strong> A score can be directionally useful but too optimistic or pessimistic for the actual portfolio. Calibration makes its average level more consistent with observed defaults. It is still an estimate, not a forecast guarantee.</div></div>
+    </section>
+
+    <section id="stages">
+      <div class="eyebrow">Choosing the horizon</div>
+      <h2>The stage decides how far ahead RiskFrame looks.</h2>
+      <p class="section-intro">IFRS 9 uses stages to distinguish loans with ordinary credit risk from loans where credit risk has increased substantially or default has occurred. In RiskFrame, the file stage is used in the ECL calculation. When days past due are available, a simple rule stage is also shown so you can compare the two.</p>
+      <div class="grid grid-3">
+        <article class="card stage"><div class="stage-label">Stage 1</div><h3>12-month expected loss</h3><p>The borrower is not treated as having a significant increase in credit risk. ECL uses the calibrated 12-month PD.</p><p><span class="math">PD used = PD calibrated</span></p></article>
+        <article class="card stage s2"><div class="stage-label">Stage 2</div><h3>Lifetime expected loss</h3><p>Credit risk is considered to have increased. ECL uses a cumulative PD over the configured lifetime, five years by default.</p><p><span class="math">PD life = 1 − (1 − PD)ⁿ</span></p></article>
+        <article class="card stage s3"><div class="stage-label">Stage 3</div><h3>Credit-impaired</h3><p>The borrower is considered credit-impaired. The engine uses PD of 1.0, so the remaining loss estimate is driven by LGD and EAD.</p><p><span class="math">PD used = 1.0</span></p></article>
+      </div>
+      <div class="grid grid-2" style="margin-top:18px">
+        <article class="card card-soft"><h3>From one year to a lifetime</h3><p>A 10% annual PD over five years is not simply 50%. RiskFrame uses survival maths: it calculates the chance of avoiding default every year and subtracts it from one.</p><p><span class="math">1 − (1 − 0.10)⁵ = 40.95%</span></p></article>
+        <article class="card card-soft"><h3>The transparent DPD rule</h3><p>When days past due is present, the rule stage is: Stage 3 for a default flag or 90+ DPD; Stage 2 for 30 to 89 DPD; otherwise Stage 1. The dashboard shows its agreement with the file stage.</p></article>
+      </div>
+    </section>
+
+    <section id="lgd">
+      <div class="eyebrow">The remaining ingredients</div>
+      <h2>LGD estimates what is not recovered. EAD estimates what is at risk.</h2>
+      <div class="grid grid-2">
+        <article class="card"><h3>Loss Given Default, or LGD</h3><p>LGD is the portion of exposure expected not to be recovered if a borrower defaults. An LGD of 0.55 means an expected loss of 55 cents for every dollar exposed after recoveries, collateral and other protections are considered.</p><p>When an LGD data file is supplied, RiskFrame uses its <strong>EAD-weighted LGD</strong>: <span class="math">sum(EAD × LGD) ÷ sum(EAD)</span>. Bigger exposures therefore have an appropriate influence on the headline.</p></article>
+        <article class="card"><h3>Exposure at Default, or EAD</h3><p>EAD is the amount expected to be outstanding at the time of default. RiskFrame can take it from an <strong>ead</strong> column, a <strong>balance</strong> column, or a configured global default when a source column is not selected.</p><p>It never uses a negative exposure. If EAD or LGD is a proxy rather than an observed value, the dashboard labels the calculation as an estimate rather than a booked figure.</p></article>
+      </div>
+    </section>
+
+    <section id="portfolio">
+      <div class="eyebrow">A real sample run</div>
+      <h2>Adding thousands of loan estimates creates the provision.</h2>
+      <p class="section-intro">These figures are from the bundled RiskFrame sample at the time this page was created. They are examples of the calculation, so your uploaded data may produce different values.</p>
+      <div class="grid grid-3">
+        <article class="card"><div class="label">Total EAD</div><span class="number">$50.00m</span><p>5,000 loan exposures in the bundled portfolio.</p></article>
+        <article class="card"><div class="label">LGD used</div><span class="number">0.557</span><p>EAD-weighted LGD from the bundled recovery data.</p></article>
+        <article class="card"><div class="label">Total ECL</div><span class="number">$15.77m</span><p>The sum of ECL across every portfolio loan.</p></article>
+      </div>
+      <div class="grid grid-2" style="margin-top:18px">
+        <article class="card card-soft"><h3>Provision percentage: 31.53%</h3><p>This headline is <span class="math">total ECL ÷ total EAD</span>. In the sample it is $15.77m ÷ $50.00m. It answers: “What estimated loss provision does this portfolio represent as a share of its exposure?”</p></article>
+        <article class="card card-soft"><h3>Average 12-month PD is not the ECL PD</h3><p>The dashboard labels the average 12-month PD clearly. ECL itself uses a stage-weighted PD: 12-month PD in Stage 1, lifetime PD in Stage 2, and 1.0 in Stage 3. That is why the provision cannot be recreated from one average PD alone.</p></article>
+      </div>
+    </section>
+
+    <section id="tools">
+      <div class="eyebrow">Decision tools</div>
+      <h2>Explore what could change, without changing the original data.</h2>
+      <div class="timeline">
+        <article class="card"><span class="timeline-dot"></span><h3>Scenario stress testing</h3><p>Baseline, Adverse and Upside scenarios adjust PD and LGD by simple multipliers. Their ECL values are combined using normalised weights, so the weights always total 100%. In the bundled sample, weighted ECL is <strong>$17.85m</strong>, a <strong>13.2% uplift</strong over baseline ECL of $15.77m.</p></article>
+        <article class="card"><span class="timeline-dot"></span><h3>Single-factor sensitivity</h3><p>RiskFrame changes PD, LGD or EAD by one shock at a time, holding the other two unchanged. The tornado chart shows the ECL range from the low to high shock. It intentionally does not simulate macroeconomic factors because the PD is already calibrated, and a macro overlay here would be invented rather than evidenced.</p></article>
+        <article class="card"><span class="timeline-dot"></span><h3>Borrower what-if</h3><p>You can change one borrower's DPD, internal score or starting PD in a temporary calculation. Nothing is saved. If DPD moves from 15 to 45, it crosses the 30-day line, changes the rule stage to Stage 2 and switches the ECL horizon from 12-month to lifetime PD.</p></article>
+        <article class="card"><span class="timeline-dot"></span><h3>Early-warning watchlist</h3><p>When DPD exists, the watchlist finds rule Stage 1 accounts at 25 to 29 DPD, just below the 30-day line. It compares their current 12-month ECL with the lifetime ECL they would have in Stage 2 and ranks the difference. It is a watchlist, not a prediction that a stage move will happen.</p></article>
+      </div>
+    </section>
+
+    <section id="quality">
+      <div class="eyebrow">Trust the inputs</div>
+      <h2>Data health warns, but does not quietly rewrite the story.</h2>
+      <div class="grid grid-2">
+        <article class="card"><h3>Checks the app runs</h3><ul class="checklist"><li>Missing required portfolio fields</li><li>PD values outside 0 to 1</li><li>Invalid file stages</li><li>Non-positive EAD where an EAD column is used</li><li>Negative days past due</li><li>Duplicate account IDs</li></ul></article>
+        <article class="card card-soft"><h3>What the health chip means</h3><p><strong>Green</strong> means no check found an issue. <strong>Amber</strong> means the data has warnings to inspect. <strong>Red</strong> means at least one error-level issue exists. The health indicator warns you and shows sample IDs, but it does not silently block your analysis or alter your file.</p></article>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="eyebrow">Your request, only for this calculation</div>
+      <h2>Nothing is stored on the server.</h2>
+      <div class="callout"><div><strong>RiskFrame is stateless.</strong> The bundled sample is read fresh when you select it. For an uploaded CSV, the browser parses it and sends rows only with the analysis request. The server creates in-memory data frames, calculates the response, then retains no portfolio, LGD file, configuration or borrower what-if data for the next request.</div></div>
+    </section>
+
+    <section id="limits">
+      <div class="eyebrow">An honest boundary</div>
+      <h2>Useful estimates still have limits.</h2>
+      <div class="grid grid-2">
+        <article class="card limit"><h3>This is not a booked accounting figure</h3><p>Results depend on the supplied PD, LGD, EAD, stage and configuration. A default LGD or EAD is a practical proxy, not a substitute for a governed finance process. RiskFrame does not account for discounting, forward-looking macroeconomic modelling, model governance or audit sign-off.</p></article>
+        <article class="card limit"><h3>Cross-sectional data has a limit too</h3><p>The bundled portfolio has one row per account. Its monthly chart is an aggregate ECL and stage-mix trend across report dates. It does not claim to show account-level stage migration or month-on-month bridges, because the data cannot support that conclusion.</p></article>
+      </div>
+    </section>
+
+    <section id="glossary">
+      <div class="eyebrow">Quick reference</div>
+      <h2>Glossary</h2>
+      <dl class="glossary">
+        <dt>PD</dt><dd>Probability of Default: the estimated chance that a borrower defaults over a stated time horizon.</dd>
+        <dt>LGD</dt><dd>Loss Given Default: the share of exposure expected not to be recovered after default.</dd>
+        <dt>EAD</dt><dd>Exposure at Default: the amount expected to be outstanding when a default happens.</dd>
+        <dt>ECL</dt><dd>Expected Credit Loss: PD × LGD × EAD, calculated for each loan and summed for the portfolio.</dd>
+        <dt>Lifetime PD</dt><dd>The cumulative probability of default over the configured number of years.</dd>
+        <dt>DPD</dt><dd>Days Past Due: the number of days a payment is overdue, used in RiskFrame's transparent stage rule when available.</dd>
+        <dt>Provision</dt><dd>The portfolio ECL amount, often shown as a percentage of total EAD.</dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer><div class="wrap"><div><strong>RiskFrame</strong><br><small>IFRS 9 Credit-Risk Analytics</small></div><a href="/">Return to the dashboard</a></div></footer>
+</body>
+</html>
