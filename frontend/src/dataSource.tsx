@@ -1,8 +1,10 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { api } from "./api";
+import type { DataQuality } from "./types";
 
 type Row = Record<string, string>;
 type RequestBody = { source: "sample" | "inline"; portfolio_rows?: Row[]; lgd_rows?: Row[] };
-type DataSource = { portfolioBody: RequestBody; lgdBody: RequestBody; message: string; loadPortfolio: (file: File) => Promise<void>; loadLgd: (file: File) => Promise<void>; useSample: () => void };
+type DataSource = { portfolioBody: RequestBody; lgdBody: RequestBody; message: string; health?: DataQuality; loadPortfolio: (file: File) => Promise<void>; loadLgd: (file: File) => Promise<void>; useSample: () => void };
 
 const MAX_FILE_BYTES = 3_000_000;
 const DataSourceContext = createContext<DataSource | undefined>(undefined);
@@ -30,15 +32,18 @@ async function readCsv(file: File): Promise<Row[]> {
 }
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
-  const [portfolioRows, setPortfolioRows] = useState<Row[]>(); const [lgdRows, setLgdRows] = useState<Row[]>(); const [message, setMessage] = useState("");
+  const [portfolioRows, setPortfolioRows] = useState<Row[]>(); const [lgdRows, setLgdRows] = useState<Row[]>(); const [message, setMessage] = useState(""); const [health, setHealth] = useState<DataQuality>();
+  const refreshHealth = useCallback((body: RequestBody) => api.post<DataQuality>("/api/data-quality", body).then(setHealth).catch(() => setHealth(undefined)), []);
+  useEffect(() => { void refreshHealth({ source: "sample" }); }, [refreshHealth]);
   const value = useMemo<DataSource>(() => ({
     portfolioBody: portfolioRows ? { source: "inline", portfolio_rows: portfolioRows, ...(lgdRows ? { lgd_rows: lgdRows } : {}) } : { source: "sample" },
     lgdBody: lgdRows ? { source: "inline", lgd_rows: lgdRows } : { source: "sample" },
     message,
-    loadPortfolio: async (file) => { const rows = await readCsv(file); setPortfolioRows(rows); setMessage(`Using ${rows.length} portfolio rows in this browser session.`); },
-    loadLgd: async (file) => { const rows = await readCsv(file); setLgdRows(rows); setMessage(`Using ${rows.length} LGD rows in this browser session.`); },
-    useSample: () => { setPortfolioRows(undefined); setLgdRows(undefined); setMessage("Using the bundled sample for each request."); },
-  }), [portfolioRows, lgdRows, message]);
+    health,
+    loadPortfolio: async (file) => { const rows = await readCsv(file); setPortfolioRows(rows); setMessage(`Using ${rows.length} portfolio rows in this browser session.`); await refreshHealth({ source: "inline", portfolio_rows: rows, ...(lgdRows ? { lgd_rows: lgdRows } : {}) }); },
+    loadLgd: async (file) => { const rows = await readCsv(file); setLgdRows(rows); setMessage(`Using ${rows.length} LGD rows in this browser session.`); await refreshHealth(portfolioRows ? { source: "inline", portfolio_rows: portfolioRows, lgd_rows: rows } : { source: "sample" }); },
+    useSample: () => { setPortfolioRows(undefined); setLgdRows(undefined); setMessage("Using the bundled sample for each request."); void refreshHealth({ source: "sample" }); },
+  }), [portfolioRows, lgdRows, message, health, refreshHealth]);
   return <DataSourceContext.Provider value={value}>{children}</DataSourceContext.Provider>;
 }
 

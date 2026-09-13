@@ -75,7 +75,11 @@ def _frame_from_rows(rows: Any, label: str) -> pd.DataFrame:
         raise AssertionError("unreachable")
 
 
-def load_frames(body: dict[str, Any], require_portfolio: bool = True) -> tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+def load_frames(
+    body: dict[str, Any],
+    require_portfolio: bool = True,
+    validate: bool = True,
+) -> tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
     """Load bundled samples fresh or create request-only DataFrames from inline rows."""
     source = body.get("source", "sample")
     if source == "sample":
@@ -93,10 +97,11 @@ def load_frames(body: dict[str, Any], require_portfolio: bool = True) -> tuple[O
     else:
         _fail("source must be 'sample' or 'inline'")
         raise AssertionError("unreachable")
-    if portfolio is not None:
-        _validate_portfolio(portfolio)
-    if lgd is not None:
-        _validate_lgd(lgd)
+    if validate:
+        if portfolio is not None:
+            _validate_portfolio(portfolio)
+        if lgd is not None:
+            _validate_lgd(lgd)
     return portfolio, lgd
 
 
@@ -188,6 +193,53 @@ def scenarios(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     try:
         results = ifrs9_engine.run_scenarios(data, cfg)
         return _jsonable({"scenario_ecl": {name: float(results["scenario_ecl"][name].sum()) for name in results["scenario_ecl"].columns}, "weighted_ecl": float(results["weighted_ecl"].sum()), "weights": results["weights"]})
+    except Exception as exc:
+        _fail(str(exc))
+        raise AssertionError("unreachable")
+
+
+@app.post("/api/sensitivity")
+def sensitivity(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    data, cfg, _, _ = _portfolio_ecl(body)
+    try:
+        return _jsonable(ifrs9_engine.sensitivity(data, cfg))
+    except Exception as exc:
+        _fail(str(exc))
+        raise AssertionError("unreachable")
+
+
+@app.post("/api/watchlist")
+def watchlist(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    data, cfg, _, _ = _portfolio_ecl(body)
+    try:
+        return _jsonable(ifrs9_engine.watchlist(data, cfg))
+    except Exception as exc:
+        _fail(str(exc))
+        raise AssertionError("unreachable")
+
+
+@app.post("/api/data-quality")
+def data_quality(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    portfolio, _ = load_frames(body, require_portfolio=True, validate=False)
+    assert portfolio is not None
+    try:
+        return _jsonable(ifrs9_engine.data_quality(portfolio))
+    except Exception as exc:
+        _fail(str(exc))
+        raise AssertionError("unreachable")
+
+
+@app.post("/api/borrower/whatif")
+def borrower_whatif(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    account_id = body.get("account_id")
+    if account_id is None:
+        _fail("account_id is required")
+    data, cfg, _, _ = _portfolio_ecl(body)
+    try:
+        return _jsonable(ifrs9_engine.whatif_borrower(data, cfg, int(account_id), body.get("overrides", {})))
+    except KeyError as exc:
+        _fail(str(exc), status_code=404)
+        raise AssertionError("unreachable")
     except Exception as exc:
         _fail(str(exc))
         raise AssertionError("unreachable")

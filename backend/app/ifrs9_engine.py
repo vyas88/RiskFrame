@@ -241,6 +241,181 @@ def run_scenarios(df: pd.DataFrame, cfg: EngineConfig | None = None) -> dict[str
     return result
 
 
+def sensitivity(
+    df: pd.DataFrame,
+    cfg: EngineConfig | None = None,
+    shocks: tuple[float, ...] = (-0.2, -0.1, 0.1, 0.2),
+) -> dict[str, Any]:
+    """Measure one-factor ECL changes, where one selected input becomes input * (1 + shock)."""
+    cfg = cfg or EngineConfig()
+    baseline_data = compute_ecl(df, cfg)
+    # Formula: baseline ECL = sum(PD_used * LGD_used * EAD_used) across all loans.
+    baseline = float(_numeric(baseline_data["ecl"]).fillna(0.0).sum())
+    factors: dict[str, list[dict[str, float]]] = {}
+    for factor in ("PD", "LGD", "EAD"):
+        results: list[dict[str, float]] = []
+        for shock in shocks:
+            multiplier = 1.0 + float(shock)
+            pd_used = _numeric(baseline_data["pd_used"]).clip(lower=0.0, upper=0.9999)
+            lgd_used = _numeric(baseline_data["lgd_used"]).clip(lower=0.0, upper=1.0)
+            ead_used = _numeric(baseline_data["ead_used"]).clip(lower=0.0)
+            if factor == "PD":
+                # Formula: shocked PD = clip(PD_used * (1 + shock), 0, 0.9999).
+                pd_used = pd_used.mul(multiplier).clip(lower=0.0, upper=0.9999)
+            elif factor == "LGD":
+                # Formula: shocked LGD = clip(LGD_used * (1 + shock), 0, 1).
+                lgd_used = lgd_used.mul(multiplier).clip(lower=0.0, upper=1.0)
+            else:
+                # Formula: shocked EAD = max(EAD_used * (1 + shock), 0).
+                ead_used = ead_used.mul(multiplier).clip(lower=0.0)
+            # Formula: shocked portfolio ECL = sum(shocked PD * shocked LGD * shocked EAD).
+            results.append({"shock": float(shock), "ecl": float((pd_used * lgd_used * ead_used).sum())})
+        factors[factor] = results
+    return {
+        "baseline": baseline,
+        "factors": factors,
+        "note": "Macro sensitivity is not shown because PD is calibrated from observed defaults, not modelled as a macro-driven factor.",
+    }
+
+
+def whatif_borrower(
+    df: pd.DataFrame,
+    cfg: EngineConfig | None,
+    account_id: int,
+    overrides: dict[str, Any],
+) -> dict[str, Any]:
+    """Recalculate one borrower after allowed overrides using portfolio PD calibration and the DPD stage rule."""
+    cfg = cfg or EngineConfig()
+    if not isinstance(overrides, dict):
+        raise ValueError("overrides must be a JSON object")
+    matches = _prepared(df)[_numeric(df["account_id"]).eq(account_id)]
+    if matches.empty:
+        raise KeyError(f"account_id {account_id} was not found")
+    allowed = {"dpd", "internal_score", "pit_pd_12m"}
+    unknown = sorted(set(overrides) - allowed)
+    if unknown:
+        raise ValueError(f"Unsupported overrides: {', '.join(unknown)}")
+    row_before = matches.iloc[[0]].copy()
+    row_after = row_before.copy()
+    for column, value in overrides.items():
+        if column not in row_after:
+            raise ValueError(f"{column} is not available for this borrower")
+        numeric_value = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+        if pd.isna(numeric_value):
+            raise ValueError(f"{column} must be numeric")
+        if column == "pit_pd_12m" and not 0.0 <= float(numeric_value) <= 1.0:
+            raise ValueError("pit_pd_12m must be in [0, 1]")
+        row_after.loc[row_after.index[0], column] = float(numeric_value)
+
+    _, calibration_mult = calibrate_pd(_prepared(df), cfg)
+
+    def calculate_row(row: pd.DataFrame) -> dict[str, float | int]:
+        prepared = _prepared(row)
+        stage_rule = int(_stage_rule(prepared).iloc[0])
+        # Formula: PD_cal = clip(raw borrower PD * portfolio calibration multiplier, 1e-6, 0.9999).
+        pd_cal = float(np.clip(float(prepared["pit_pd_12m"].iloc[0]) * calibration_mult, 1e-6, 0.9999))
+        pd_life = float(lifetime_pd(pd_cal, cfg))
+        # Formula: PD_used = 12m PD for Stage 1, lifetime PD for Stage 2, and 1.0 for Stage 3.
+        pd_used = pd_cal if stage_rule == 1 else pd_life if stage_rule == 2 else 1.0
+        ead_used = float(resolve_ead(prepared, cfg).iloc[0])
+        lgd_used = float(resolve_lgd(prepared, cfg).iloc[0])
+        # Formula: borrower ECL = PD_used * LGD_used * EAD_used.
+        return {"stage": stage_rule, "pd_used": pd_used, "lgd_used": lgd_used, "ead_used": ead_used, "ecl": pd_used * lgd_used * ead_used}
+
+    before = calculate_row(row_before)
+    after = calculate_row(row_after)
+    if "dpd" in overrides and before["stage"] != after["stage"]:
+        old_dpd = float(row_before["dpd"].iloc[0])
+        new_dpd = float(row_after["dpd"].iloc[0])
+        direction = "raised" if new_dpd > old_dpd else "lowered"
+        reason = f"DPD {direction} from {old_dpd:g} to {new_dpd:g} crosses a stage threshold, so the loan moves to Stage {after['stage']} and its ECL changes from {before['ecl']:.2f} to {after['ecl']:.2f}."
+    elif "dpd" in overrides:
+        reason = f"DPD changes from {float(row_before['dpd'].iloc[0]):g} to {float(row_after['dpd'].iloc[0]):g}, but it stays within Stage {after['stage']}, so the stage-adjusted PD and ECL remain {after['ecl']:.2f}."
+    elif "pit_pd_12m" in overrides:
+        reason = f"12-month PD changes from {float(row_before['pit_pd_12m'].iloc[0]):.4f} to {float(row_after['pit_pd_12m'].iloc[0]):.4f}, so the stage-adjusted PD and ECL change from {before['ecl']:.2f} to {after['ecl']:.2f}."
+    elif "internal_score" in overrides:
+        reason = f"Internal score changes from {float(row_before['internal_score'].iloc[0]):g} to {float(row_after['internal_score'].iloc[0]):g}. It is borrower context only in this transparent rule set, so Stage {after['stage']} and ECL remain {after['ecl']:.2f}."
+    else:
+        reason = "No calculation override was supplied, so the borrower result is unchanged."
+    return {"before": before, "after": after, "reason": reason}
+
+
+def watchlist(df: pd.DataFrame, cfg: EngineConfig | None = None, dpd_low: int = 25) -> dict[str, Any]:
+    """List Stage 1-by-rule accounts just below 30 DPD and their lifetime-ECL increment."""
+    if "dpd" not in df:
+        return {"available": False}
+    cfg = cfg or EngineConfig()
+    data = compute_ecl(df, cfg)
+    dpd = _numeric(data["dpd"])
+    candidates = data[_numeric(data["stage_rule"]).eq(1) & dpd.between(dpd_low, 29, inclusive="both")].copy()
+    # Formula: current ECL = 12m PD_cal * LGD_used * EAD_used for near-threshold Stage 1 accounts.
+    candidates["current_ecl"] = candidates["pd_cal"] * candidates["lgd_used"] * candidates["ead_used"]
+    # Formula: potential ECL = lifetime PD * LGD_used * EAD_used, where lifetime PD = 1 - (1 - PD_cal)^N.
+    candidates["potential_ecl"] = candidates["pd_life"] * candidates["lgd_used"] * candidates["ead_used"]
+    # Formula: ECL at risk = potential Stage 2 ECL - current Stage 1 ECL.
+    candidates["ecl_at_risk"] = (candidates["potential_ecl"] - candidates["current_ecl"]).clip(lower=0.0)
+    ordered = candidates.sort_values("ecl_at_risk", ascending=False).head(50)
+    rows = [
+        {
+            "account_id": int(row.account_id),
+            "dpd": float(row.dpd),
+            "current_ecl": float(row.current_ecl),
+            "potential_ecl": float(row.potential_ecl),
+            "ecl_at_risk": float(row.ecl_at_risk),
+        }
+        for row in ordered.itertuples()
+    ]
+    return {
+        "available": True,
+        "n": int(len(candidates)),
+        "total_ecl_at_risk": float(candidates["ecl_at_risk"].sum()),
+        "rows": rows,
+    }
+
+
+def data_quality(df: pd.DataFrame) -> dict[str, Any]:
+    """Report non-blocking portfolio data checks with counts and up to five affected account IDs."""
+    def sample_ids(mask: pd.Series) -> list[int | str]:
+        if "account_id" not in df:
+            return []
+        values = df.loc[mask, "account_id"].head(5).tolist()
+        return [int(value) if isinstance(value, (int, np.integer)) or (isinstance(value, float) and value.is_integer()) else str(value) for value in values]
+
+    checks: list[dict[str, Any]] = []
+    missing = sorted(REQUIRED_COLUMNS - set(df.columns))
+    checks.append({"check": "Missing required columns", "severity": "error", "count": len(missing), "sample_ids": missing[:5]})
+    if missing:
+        return {"status": "red", "checks": checks}
+
+    pd_values = _numeric(df["pit_pd_12m"])
+    pd_invalid = pd_values.notna() & ~pd_values.between(0.0, 1.0)
+    checks.append({"check": "PD outside [0, 1]", "severity": "error", "count": int(pd_invalid.sum()), "sample_ids": sample_ids(pd_invalid)})
+    stage_values = _numeric(df["stage"])
+    stage_invalid = ~stage_values.isin([1, 2, 3])
+    checks.append({"check": "Stage outside {1, 2, 3}", "severity": "error", "count": int(stage_invalid.sum()), "sample_ids": sample_ids(stage_invalid)})
+    ead_column = "ead" if "ead" in df else "balance" if "balance" in df else None
+    if ead_column is None:
+        ead_invalid = pd.Series(False, index=df.index)
+    else:
+        ead_invalid = _numeric(df[ead_column]).le(0).fillna(False)
+    checks.append({"check": "EAD is zero or negative", "severity": "warn", "count": int(ead_invalid.sum()), "sample_ids": sample_ids(ead_invalid)})
+    if "dpd" in df:
+        dpd_invalid = _numeric(df["dpd"]).lt(0).fillna(False)
+    else:
+        dpd_invalid = pd.Series(False, index=df.index)
+    checks.append({"check": "DPD is negative", "severity": "warn", "count": int(dpd_invalid.sum()), "sample_ids": sample_ids(dpd_invalid)})
+    account_ids = df["account_id"]
+    duplicates = account_ids.duplicated(keep=False) & account_ids.notna()
+    checks.append({"check": "Duplicate account ID", "severity": "warn", "count": int(duplicates.sum()), "sample_ids": sample_ids(duplicates)})
+    if any(item["severity"] == "error" and item["count"] > 0 for item in checks):
+        status = "red"
+    elif any(item["severity"] == "warn" and item["count"] > 0 for item in checks):
+        status = "amber"
+    else:
+        status = "green"
+    return {"status": status, "checks": checks}
+
+
 def borrower_view(df_ecl: pd.DataFrame, account_id: int) -> dict[str, Any]:
     """Return one account's ECL inputs, where ECL = PD_used * LGD_used * EAD_used."""
     matches = df_ecl[_numeric(df_ecl["account_id"]).eq(account_id)]
@@ -273,4 +448,9 @@ def borrower_view(df_ecl: pd.DataFrame, account_id: int) -> dict[str, Any]:
         "ead_used": float(row["ead_used"]),
         "ecl": float(row["ecl"]),
         "factor_context": context,
+        "whatif_inputs": {
+            column: float(row[column])
+            for column in ("dpd", "internal_score", "pit_pd_12m")
+            if column in row.index and pd.notna(row[column])
+        },
     }
