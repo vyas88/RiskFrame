@@ -1,11 +1,6 @@
-import { useEffect, useState } from "react";
-import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Card, CardContent, Container, Stack, Alert, Skeleton, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Card, CardContent, Container, Stack, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDataSource } from "../dataSource";
-import { api } from "../api";
-import type { PortfolioSummary } from "../types";
-import { Figure } from "../components/Explainable";
-import { stageColors } from "../components/Common";
 
 type Column = { name: string; type: string; description: string };
 
@@ -45,7 +40,6 @@ const lgdOptional: Column[] = [
 const sectionSx = { py: { xs: 5, md: 7 }, scrollMarginTop: 100 };
 const eyebrowSx = { color: "primary.main", fontSize: 11, fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase" };
 const displaySx = { fontFamily: "'Source Serif 4', Georgia, serif", fontWeight: 600, letterSpacing: "-.035em", color: "#0B1F2A", lineHeight: 1.12 };
-const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(value);
 
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
@@ -75,42 +69,24 @@ function SchemaPanel({ title, description, required, optional }: { title: string
   </Card>;
 }
 
-// Preview uses the same stateless sample request as the console, never the visitor's active file.
-function ProductPreview() {
-  const [summary, setSummary] = useState<PortfolioSummary>();
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    let active = true;
-    void api.post<PortfolioSummary>("/api/portfolio/summary", { source: "sample" })
-      .then((result) => { if (active) setSummary(result); })
-      .catch(() => { if (active) setError(true); });
-    return () => { active = false; };
-  }, []);
-  return <Box component="figure" m={0} sx={{ minWidth: 0 }}>
-    <Box sx={{ border: "1px solid #DCE5E5", borderRadius: 2, overflow: "hidden", bgcolor: "white", boxShadow: "0 18px 50px rgba(11,31,42,.08)" }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.5, bgcolor: "#0B1F2A", color: "white" }}>
-        <Typography fontWeight={800} variant="body2">RiskFrame / Overview</Typography>
-        <Typography variant="caption" sx={{ color: "#D9E7E8" }}>Sample data</Typography>
-      </Stack>
-      <Box sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="overline" color="primary.main" fontWeight={800}>Portfolio at a glance</Typography>
-        {error ? <Alert severity="info">Sample preview is unavailable. You can still upload your own file or try the sample in the app.</Alert> : !summary ? <Box aria-label="Loading sample preview"><Skeleton height={90} /><Skeleton height={120} /></Box> : <>
-          <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2} mt={1} mb={3}>
-            {[["Total EAD", money(summary.total_ead)], ["Expected Credit Loss", money(summary.total_ecl)], ["Provision rate", (summary.provision_pct * 100).toFixed(2) + "%"], ["Accounts", summary.n.toLocaleString("en-US")]].map(([label, value]) => <Box key={label}>
-              <Typography variant="caption" color="text.secondary">{label}</Typography>
-              <Figure value={value} variant="h6" />
-            </Box>)}
-          </Box>
-          <Typography variant="body2" fontWeight={700} mb={1}>Where the risk sits</Typography>
-          <Stack gap={1.25}>{summary.stage_mix.map((stage) => <Box key={stage.stage}>
-            <Stack direction="row" justifyContent="space-between" mb={.5}><Typography variant="caption">Stage {stage.stage}</Typography><Figure variant="body2" value={(stage.share * 100).toFixed(1) + "%"} /></Stack>
-            <Box sx={{ height: 6, bgcolor: "#EFF3F3", borderRadius: 1 }}><Box sx={{ height: "100%", width: stage.share * 100 + "%", bgcolor: stageColors[stage.stage], borderRadius: 1 }} /></Box>
-          </Box>)}</Stack>
-          <Typography variant="caption" color="text.secondary" display="block" mt={2}>Account shares by stage · ECL = PD × LGD × EAD</Typography>
-        </>}
-      </Box>
+function DecisionQuestions() {
+  const questions = [
+    "Where is risk beginning to build?",
+    "Which exposures deserve attention first?",
+    "What happens if conditions deteriorate?",
+    "Can we explain the decision?",
+  ];
+  return <Box component="section" aria-labelledby="decision-questions" sx={{ minWidth: 0, border: "1px solid #DCE5E5", borderRadius: 2, overflow: "hidden", bgcolor: "white", boxShadow: "0 18px 50px rgba(11,31,42,.06)" }}>
+    <Box sx={{ px: { xs: 2.5, sm: 3 }, py: 2.5, bgcolor: "#0B1F2A" }}>
+      <Typography component="h2" id="decision-questions" sx={{ ...eyebrowSx, color: "#D4E4E7" }}>From risk signal to decision</Typography>
     </Box>
-    <Typography component="figcaption" variant="caption" color="text.secondary" textAlign="center" mt={1.5}>Live example from the bundled sample. Your file produces its own results.</Typography>
+    <Box component="ol" sx={{ listStyle: "none", m: 0, px: { xs: 2.5, sm: 3 }, py: 1 }}>
+      {questions.map((question, index) => <Box component="li" key={question} sx={{ display: "flex", gap: 2, py: 3, alignItems: "baseline", "&:not(:last-child)": { borderBottom: "1px solid #E4EBEB" } }}>
+        <Typography component="span" aria-hidden="true" sx={{ fontSize: 12, fontWeight: 700, color: "primary.main" }}>{String(index + 1).padStart(2, "0")}</Typography>
+        <Typography sx={{ fontSize: { xs: 18, sm: 20 }, fontWeight: 600, lineHeight: 1.4 }}>{question}</Typography>
+      </Box>)}
+    </Box>
+    <Typography variant="body2" color="text.secondary" sx={{ px: { xs: 2.5, sm: 3 }, pb: 3 }}>One connected view from portfolio to borrower.</Typography>
   </Box>;
 }
 
@@ -152,12 +128,15 @@ export default function Home() {
           <Box>
             <Typography sx={eyebrowSx}>Integrated credit risk analytics</Typography>
             <Typography component="h1" sx={{ ...displaySx, fontSize: { xs: "2.8rem", sm: "3.4rem", md: "3.7rem" }, mt: 1.5, mb: 2 }}>Credit risk,<br />made explainable.</Typography>
-            <Typography color="text.secondary" sx={{ fontSize: 17, lineHeight: 1.7, mb: 3 }}>Turn loan-level data into clear IFRS 9 staging analysis, expected credit loss, stress testing, and borrower-level insight, all in one guided workflow.</Typography>
+            <Typography color="text.secondary" sx={{ fontSize: 17, lineHeight: 1.7, mb: 3 }}>Turn credit data into a clearer view of where risk sits, how assumptions affect it, and what needs attention next.</Typography>
             <Typography variant="body2" color="text.secondary" mb={2.5}>Built for lean risk teams, smaller lenders, consultants, and learning environments.</Typography>
-            {actions}
+            <Stack direction={{ xs: "column", sm: "row" }} gap={1.25}>
+              <Button variant="contained" onClick={() => navigate("/start")}>Explore RiskFrame</Button>
+              <Button variant="outlined" onClick={upload}>Analyze your data</Button>
+            </Stack>
             <Typography variant="caption" color="text.secondary" display="block" mt={2}>No login · No persistent storage · Explainable ECL</Typography>
           </Box>
-          <ProductPreview />
+          <DecisionQuestions />
         </Box>
       </Container>
       <Box sx={{ bgcolor: "white", borderBlock: "1px solid #E2E8E7" }}>
