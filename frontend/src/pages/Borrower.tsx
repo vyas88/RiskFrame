@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, List, ListItem, TextField, Typography } from "@mui/material";
+import { useLocation } from "react-router-dom";
 import { api } from "../api";
 import type { Borrower as BorrowerType, BorrowerWhatIf } from "../types";
 import { currency, ErrorPanel, LoadingPanels, percent, Panel } from "../components/Common";
@@ -8,8 +9,11 @@ import { useDataSource } from "../dataSource";
 
 export default function Borrower() {
   const { portfolioBody } = useDataSource();
+  const location = useLocation();
   const [accountId, setAccountId] = useState(""); const [data, setData] = useState<BorrowerType>(); const [error, setError] = useState(""); const [loading, setLoading] = useState(false); const [whatIf, setWhatIf] = useState<BorrowerWhatIf>(); const [overrides, setOverrides] = useState({ dpd: "", internal_score: "", pit_pd_12m: "" });
-  const submit = async (event: FormEvent) => { event.preventDefault(); setError(""); setLoading(true); try { setData(await api.post<BorrowerType>("/api/borrower", { ...portfolioBody, account_id: Number(accountId) })); } catch (err) { setError(err instanceof Error && (err.message.includes("404") || err.message.includes("not found")) ? "Account not found" : err instanceof Error ? err.message : "Could not load borrower"); } finally { setLoading(false); } };
+  const loadBorrower = async (id: number) => { setError(""); setLoading(true); try { setData(await api.post<BorrowerType>("/api/borrower", { ...portfolioBody, account_id: id })); } catch (err) { setError(err instanceof Error && (err.message.includes("404") || err.message.includes("not found")) ? "Account not found" : err instanceof Error ? err.message : "Could not load borrower"); } finally { setLoading(false); } };
+  const submit = async (event: FormEvent) => { event.preventDefault(); await loadBorrower(Number(accountId)); };
+  useEffect(() => { const requestedId = new URLSearchParams(location.search).get("account_id"); if (!requestedId || Number(requestedId) === Number(accountId)) return; setAccountId(requestedId); void loadBorrower(Number(requestedId)); }, [location.search]);
   useEffect(() => { if (!data) return; setOverrides({ dpd: String(data.whatif_inputs.dpd ?? ""), internal_score: String(data.whatif_inputs.internal_score ?? ""), pit_pd_12m: String(data.whatif_inputs.pit_pd_12m ?? "") }); setWhatIf(undefined); }, [data]);
   const resetWhatIf = () => { if (!data) return; setOverrides({ dpd: String(data.whatif_inputs.dpd ?? ""), internal_score: String(data.whatif_inputs.internal_score ?? ""), pit_pd_12m: String(data.whatif_inputs.pit_pd_12m ?? "") }); setWhatIf(undefined); };
   const applyWhatIf = () => { if (!data) return; setError(""); const cleaned = Object.fromEntries(Object.entries(overrides).filter(([key, value]) => value !== "" && Number(value) !== data.whatif_inputs[key as keyof typeof data.whatif_inputs]).map(([key, value]) => [key, Number(value)])); api.post<BorrowerWhatIf>("/api/borrower/whatif", { ...portfolioBody, account_id: Number(data.identity.account_id), overrides: cleaned }).then(setWhatIf).catch((err: Error) => setError(err.message)); };
