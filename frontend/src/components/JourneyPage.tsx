@@ -13,7 +13,7 @@ export function JourneyPage({ children }: { children: ReactNode }) {
     </Box>
     {children}
     <Box sx={{ position: "fixed", bottom: 0, left: { xs: 0, md: 280 }, right: 0, zIndex: 5, bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider", px: { xs: 2, md: 3 }, py: 1.25, opacity: guided ? 1 : .78 }}>
-      <Stack direction="row" justifyContent="space-between" maxWidth="xl" mx="auto">{currentIndex === 0 ? <Box /> : <Button onClick={previous}>Back</Button>}<Button variant={guided ? "contained" : "outlined"} onClick={next}>{following ? `Next: ${following.label}` : "Finish and return to overview"}</Button></Stack>
+      <Stack direction="row" justifyContent="space-between" maxWidth="xl" mx="auto">{currentIndex === 0 ? <Box /> : <Button onClick={previous}>Back</Button>}<Button variant={guided ? "contained" : "outlined"} onClick={next}>{step.path === "/app/overview" ? "Explore risk concentration →" : following ? `Next: ${following.label}` : "Finish and return to overview"}</Button></Stack>
     </Box>
   </Box>;
 }
