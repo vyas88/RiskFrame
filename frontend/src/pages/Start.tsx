@@ -39,7 +39,7 @@ export default function Start() {
   const navigate = useNavigate();
   const location = useLocation();
   const { source, inlinePortfolioRows, useSample, useInlineData, addLgdData } = useDataSource();
-  const [showUpload, setShowUpload] = useState(new URLSearchParams(location.search).get("upload") === "lgd");
+  const [showUpload, setShowUpload] = useState(["lgd", "portfolio"].includes(new URLSearchParams(location.search).get("upload") ?? ""));
   const [portfolioRows, setPortfolioRows] = useState<Row[]>();
   const [portfolioFilename, setPortfolioFilename] = useState("");
   const [lgdRows, setLgdRows] = useState<Row[]>();
@@ -49,7 +49,7 @@ export default function Start() {
   const [parseError, setParseError] = useState("");
   const [loading, setLoading] = useState(false);
   const addLgdOnly = source === "inline" && Boolean(inlinePortfolioRows) && new URLSearchParams(location.search).get("upload") === "lgd";
-  useEffect(() => { if (new URLSearchParams(location.search).get("upload") === "lgd") setShowUpload(true); }, [location.search]);
+  useEffect(() => { if (["lgd", "portfolio"].includes(new URLSearchParams(location.search).get("upload") ?? "")) setShowUpload(true); }, [location.search]);
   const messages = useMemo(() => qualityMessages(quality), [quality]);
   const blocked = Boolean(parseError) || quality?.status === "red" || lgdErrors.length > 0;
   const loadPortfolio = async (file: File) => { setLoading(true); setParseError(""); setQuality(undefined); try { const rows = await parseCsv(file); setPortfolioRows(rows); setPortfolioFilename(file.name); setQuality(await api.post<DataQuality>("/api/data-quality", { source: "inline", portfolio_rows: rows })); } catch (error) { setPortfolioRows(undefined); setParseError(error instanceof Error ? error.message : "This portfolio file could not be read."); } finally { setLoading(false); } };
