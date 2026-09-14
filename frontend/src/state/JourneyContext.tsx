@@ -13,7 +13,7 @@ export type JourneyStep = {
 export const JOURNEY_STEPS: JourneyStep[] = [
   { path: "/app/overview", label: "Big picture", technical: "Portfolio overview", blurb: "See the provision headline before exploring the detail." },
   { path: "/app/book", label: "Where the risk is", technical: "Portfolio and stages", blurb: "Find which stages, regions, and trends drive expected loss." },
-  { path: "/app/borrower", label: "Check one loan", technical: "Borrower view", blurb: "Inspect an individual account and test a simple what-if." },
+  { path: "/app/borrower", label: "Account analysis", technical: "Borrower-level risk", blurb: "Inspect an account’s stage, expected loss and what-if outcomes." },
   { path: "/app/stress", label: "Stress test", technical: "Scenarios and sensitivity", blurb: "See how the provision changes when its core drivers move." },
   { path: "/app/recoveries", label: "Recoveries", technical: "LGD analysis", blurb: "Review recovery data and the LGD assumption feeding ECL.", optional: true },
   { path: "/app/watchlist", label: "Early warning", technical: "Watchlist", blurb: "Focus on accounts close to the Stage 2 threshold." },
